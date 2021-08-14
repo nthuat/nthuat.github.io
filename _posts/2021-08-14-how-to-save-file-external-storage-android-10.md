@@ -52,10 +52,11 @@ private fun saveFileUsingMediaStore(context: Context, url: String, fileName: Str
 ```
 
 Note that you have to input right value of MIME_TYPE which depends on your file. Each file type have corresponding MIME type, for instance:
-.pdf -> application/pdf
-.png ->image/png
-.epub -> application/epub+zip
 
-You can get more information about MIME types at here: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+- .pdf -> application/pdf
+- .png ->image/png
+- .epub -> application/epub+zip
+
+You can get more information about MIME types at [here.](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types)
 
 Happy reading!
