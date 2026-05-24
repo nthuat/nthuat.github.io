@@ -3,7 +3,7 @@ layout: post
 title: Building FlashAttention from Scratch on an A10 - What the Numbers Actually Say
 ---
 
-I've been learning GPU kernels for the past month. vLLM ships FlashAttention already — I didn't need to build one. But I couldn't read the paper and actually *understand* it without writing the code myself. So I spent two weeks building it in Triton and running it on a real GPU.
+I've been learning GPU kernels for the past month. vLLM ships FlashAttention already — I didn't need to build one. But I couldn't read the paper and actually understand it without writing the code myself. So I spent two weeks building it in Triton and running it on a real GPU.
 
 Here's what I found out.
 
