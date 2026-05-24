@@ -1,15 +1,15 @@
 ---
 layout: post
-title: Building FlashAttention from Scratch on an A10G - What the Numbers Actually Say
+title: Building FlashAttention from Scratch on an A10 - What the Numbers Actually Say
 ---
 
 I spent the last two weeks building FlashAttention from scratch in Triton. Not to use it in production - vLLM already ships a better one. I built it to understand what "IO-aware" actually means, why the online softmax trick works, and what autotuning does on a real GPU.
 
-Here's what I learned and what the numbers actually say - benchmarked on an A10G.
+Here's what I learned and what the numbers actually say - benchmarked on an A10.
 
 ## Why build it yourself?
 
-The FlashAttention paper (Dao et al., 2022) is 26 pages. After reading it I could explain the algorithm. But I couldn't tell you *why* BLOCK_Q=128 might be worse than BLOCK_Q=64 on an A10G, or what 17% occupancy means, or why bandwidth is 17% of peak even on fast hardware.
+The FlashAttention paper (Dao et al., 2022) is 26 pages. After reading it I could explain the algorithm. But I couldn't tell you *why* BLOCK_Q=128 might be worse than BLOCK_Q=64 on an A10, or what 17% occupancy means, or why bandwidth is 17% of peak even on fast hardware.
 
 The only way to know those things is to run the code and stare at the numbers.
 
@@ -185,9 +185,9 @@ One subtlety: when `q_block_idx * BLOCK_Q < k_block_idx * BLOCK_K`, the entire b
 
 `@triton.autotune` benchmarks all configs at the first call for a given `(seq_len, HEAD_DIM)` pair and caches the best one.
 
-I tested 6 configs on A10G:
+I tested 6 configs on A10:
 
-| BLOCK_Q | BLOCK_K | num_warps | A10G result |
+| BLOCK_Q | BLOCK_K | num_warps | A10 result |
 |---------|---------|-----------|-------------|
 | 64      | 64      | 4         | **best**    |
 | 128     | 64      | 4         | slower      |
@@ -196,9 +196,9 @@ I tested 6 configs on A10G:
 | 128     | 64      | 8         | slower      |
 | 128     | 128     | 8         | slower      |
 
-**Why BLOCK_Q=128 still loses on A10G:**
+**Why BLOCK_Q=128 still loses on A10:**
 
-A10G has 96 KB of shared memory per SM - double the T4's 48 KB. So BLOCK_Q=128 now fits in SRAM:
+A10 has 96 KB of shared memory per SM - double the T4's 48 KB. So BLOCK_Q=128 now fits in SRAM:
 
 ```
 BLOCK_Q=128: 128 x 64 x 4 bytes = 32 KB (Q)
@@ -207,24 +207,24 @@ BLOCK_Q=128: 128 x 64 x 4 bytes = 32 KB (Q)
 
 But autotune still picked BLOCK_Q=64. The bottleneck shifted from SRAM to **register pressure**.
 
-With BLOCK_Q=128, the kernel keeps a [128, 64] `O` accumulator live across the entire K-loop - that's 8,192 float32 values = 32 KB of registers per warp. Each A10G SM has 65,536 registers total. Larger Q blocks mean fewer warps can be resident simultaneously, which reduces the GPU's ability to hide memory latency. SRAM was the hard constraint on T4; registers are the hard constraint on A10G.
+With BLOCK_Q=128, the kernel keeps a [128, 64] `O` accumulator live across the entire K-loop - that's 8,192 float32 values = 32 KB of registers per warp. Each A10 SM has 65,536 registers total. Larger Q blocks mean fewer warps can be resident simultaneously, which reduces the GPU's ability to hide memory latency. SRAM was the hard constraint on T4; registers are the hard constraint on A10.
 
 ## 6. Benchmark results
 
-Measured on Modal A10G (float32, `do_bench` with 25 warmup + 100 rep):
+Measured on Modal A10 (float32, `do_bench` with 25 warmup + 100 rep):
 
 | config                              | ms    | GB/s  |
 |-------------------------------------|-------|-------|
-| batch=1, heads=1, seq=256           | 0.018 |  15.0 |
-| batch=1, heads=1, seq=1024          | 0.052 |  20.4 |
-| batch=2, heads=4, seq=256           | 0.020 | 106.4 |
-| batch=2, heads=4, seq=1024          | 0.105 |  79.8 |
-| batch=2, heads=4, seq=256  (causal) | 0.020 | 104.7 |
-| batch=2, heads=4, seq=1024 (causal) | 0.106 |  78.8 |
+| batch=1, heads=1, seq=256           | 0.013 |  19.5 |
+| batch=1, heads=1, seq=1024          | 0.036 |  29.2 |
+| batch=2, heads=4, seq=256           | 0.016 | 132.3 |
+| batch=2, heads=4, seq=1024          | 0.077 | 109.3 |
+| batch=2, heads=4, seq=256  (causal) | 0.016 | 128.2 |
+| batch=2, heads=4, seq=1024 (causal) | 0.078 | 106.9 |
 
-A10G peak HBM bandwidth: **600 GB/s**. Peak measured: **106.4 GB/s** - about 17.7% of peak.
+A10 peak HBM bandwidth: **600 GB/s**. Peak measured: **132.3 GB/s** - about 22% of peak.
 
-## 7. Why 17.7% of peak bandwidth?
+## 7. Why 22% of peak bandwidth?
 
 Better than I expected, but still far from peak. Two factors explain the gap.
 
@@ -236,11 +236,11 @@ At batch=2, heads=4, seq=256, head_dim=64, float32:
 tensor size = 2 x 4 x 256 x 64 x 4 bytes = 1 MB
 ```
 
-1 MB is tiny. The A10G can saturate its 600 GB/s bandwidth only with large, sustained transfers. For 1 MB, kernel launch overhead and HBM latency dominate actual transfer time. Notice that seq=1024 drops to 79.8 GB/s - more data doesn't fully compensate because the working set is still small.
+1 MB is tiny. The A10 can saturate its 600 GB/s bandwidth only with large, sustained transfers. For 1 MB, kernel launch overhead and HBM latency dominate actual transfer time. Notice that seq=1024 drops to 109.3 GB/s - more data doesn't fully compensate because the working set is still small.
 
 **Factor 2: 17% SM occupancy**
 
-Nsight reports ~17% occupancy - only 17% of A10G's SMs are active simultaneously. The root cause is **register pressure**.
+Nsight reports ~17% occupancy - only 17% of A10's SMs are active simultaneously. The root cause is **register pressure**.
 
 Inside the K-block loop, the kernel keeps these live simultaneously:
 - `Q`: [64, 64] float32 = 4,096 floats = 16 KB of registers
@@ -263,7 +263,7 @@ I can reproduce the online softmax. I understand why tiling reduces HBM traffic.
 3. Larger sequences to amortize kernel launch overhead
 4. float16/bfloat16 for 2x bandwidth improvement
 
-The gap between my 106 GB/s and what vLLM ships isn't a bug - it's the rest of the engineering.
+The gap between my 132 GB/s and what vLLM ships isn't a bug - it's the rest of the engineering.
 
 ## Reproducing the benchmark
 
