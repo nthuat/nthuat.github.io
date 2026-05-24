@@ -49,9 +49,13 @@ At the end: `O = O / l`. The final output is numerically identical to standard s
 
 ## 3. Triton implementation
 
-Here's the core kernel (simplified):
+Here's the full implementation:
 
 ```python
+import torch
+import triton
+import triton.language as tl
+
 @triton.autotune(
     configs=[
         triton.Config({'BLOCK_Q': 64,  'BLOCK_K': 64},  num_warps=4),
@@ -74,23 +78,29 @@ def flash_attention_kernel(
         HEAD_DIM: tl.constexpr,
         IS_CAUSAL: tl.constexpr,
 ):
-    bh_idx     = tl.program_id(0)
+    bh_idx      = tl.program_id(0)
     q_block_idx = tl.program_id(1)
+    batch_idx   = bh_idx // num_heads
+    head_idx    = bh_idx % num_heads
+    bh_offset   = batch_idx * stride_b + head_idx * stride_h
 
-    batch_idx = bh_idx // num_heads
-    head_idx  = bh_idx % num_heads
-    bh_offset = batch_idx * stride_b + head_idx * stride_h
-
-    # Load Q block (stays in SRAM for the entire K-loop)
-    Q = tl.load(Q_ptr + bh_offset + q_block_idx * BLOCK_Q * HEAD_DIM + ...)
+    q_offset     = q_block_idx * BLOCK_Q * HEAD_DIM
+    q_row_offs   = tl.arange(0, BLOCK_Q)
+    q_col_offs   = tl.arange(0, HEAD_DIM)
+    q_offsets    = q_row_offs[:, None] * HEAD_DIM + q_col_offs[None, :]
+    Q = tl.load(Q_ptr + bh_offset + q_offset + q_offsets)
 
     m = tl.full([BLOCK_Q], float('-inf'), dtype=tl.float32)
     l = tl.zeros([BLOCK_Q],              dtype=tl.float32)
     O = tl.zeros([BLOCK_Q, HEAD_DIM],    dtype=tl.float32)
 
     for k_block_idx in range(seq_len // BLOCK_K):
-        K = tl.load(...)
-        V = tl.load(...)
+        k_offset   = k_block_idx * BLOCK_K * HEAD_DIM
+        k_row_offs = tl.arange(0, BLOCK_K)
+        k_col_offs = tl.arange(0, HEAD_DIM)
+        k_offsets  = k_row_offs[:, None] * HEAD_DIM + k_col_offs[None, :]
+        K = tl.load(K_ptr + bh_offset + k_offset + k_offsets)
+        V = tl.load(V_ptr + bh_offset + k_offset + k_offsets)
 
         S = tl.dot(Q, tl.trans(K)) / tl.sqrt(float(HEAD_DIM))
 
@@ -107,14 +117,16 @@ def flash_attention_kernel(
         m      = m_new
 
     O = O / l[:, None]
-    tl.store(O_ptr + bh_offset + q_block_idx * BLOCK_Q * HEAD_DIM + ..., O)
-```
+    o_offset  = q_block_idx * BLOCK_Q * HEAD_DIM
+    o_row_offs = tl.arange(0, BLOCK_Q)
+    o_col_offs = tl.arange(0, HEAD_DIM)
+    o_offsets  = o_row_offs[:, None] * HEAD_DIM + o_col_offs[None, :]
+    tl.store(O_ptr + bh_offset + o_offset + o_offsets, O)
 
-The wrapper:
 
-```python
-def flash_attention(Q, K, V, causal=False):
+def flash_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, causal: bool = False) -> torch.Tensor:
     batch, num_heads, seq_len, head_dim = Q.shape
+    assert head_dim in (32, 64, 128), f"head_dim must be 32, 64, or 128"
     grid = lambda meta: (batch * num_heads, triton.cdiv(seq_len, meta['BLOCK_Q']))
     O = torch.empty_like(Q)
     flash_attention_kernel[grid](
@@ -236,10 +248,4 @@ The gap between my 106 GB/s and what vLLM ships isn't a bug — it's the rest of
 
 ## Code
 
-All kernels: [triton-llm-kernels](https://github.com/thuatnguyen/triton-llm-kernels)
-
-Implementation: `triton_llm_kernels/flash_attention.py`
-
----
-
-*Next: Read FlashAttention v2 paper, then first OSS PR to vLLM.*
+Full implementation is in the post above. The kernel requires Triton >= 2.0 and a CUDA GPU with head_dim in (32, 64, 128) and seq_len divisible by 64.
