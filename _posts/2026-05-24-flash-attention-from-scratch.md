@@ -15,13 +15,15 @@ Standard attention looks simple:
 O = softmax(Q @ K.T / sqrt(d)) @ V
 ```
 
-The issue is that N×N matrix. At seq_len=8192 and float16, that's 8192² × 2 bytes = 128 MB just for the attention weights — per head. With 32 heads you're at 4 GB. The bottleneck isn't the math, it's reading and writing that matrix to and from GPU memory (HBM).
+The issue is that NxN matrix. At seq_len=8192 and float16, that's 8192² × 2 bytes = 128 MB just for the attention weights - per head. With 32 heads you're at 4 GB. The bottleneck isn't the math, it's reading and writing that matrix to and from GPU memory (HBM).
 
 ## The FlashAttention idea
 
-Instead of computing the full N×N matrix and writing it to HBM, FlashAttention tiles Q into blocks and iterates over K/V blocks, computing the output incrementally. The Q block stays in SRAM (fast on-chip memory) the whole time. No N×N materialization.
+The paper (Dao et al., 2022) is 26 pages. After reading it I could explain the algorithm - but I couldn't tell you why BLOCK_Q=128 might be slower than BLOCK_Q=64, or why we're only hitting 22% of peak bandwidth. Writing the code forced me to actually figure that out.
 
-The trick that makes this work is **online softmax** — you normally need two passes (one to find the max for numerical stability, one to compute exp and normalize). Online softmax does it in one pass with running accumulators:
+Instead of computing the full NxN matrix and writing it to HBM, FlashAttention tiles Q into blocks and iterates over K/V blocks, computing the output incrementally. The Q block stays in SRAM (fast on-chip memory) the whole time. No NxN materialization.
+
+The trick that makes this work is **online softmax** - you normally need two passes (one to find the max for numerical stability, one to compute exp and normalize). Online softmax does it in one pass with running accumulators:
 
 ```python
 # for each K/V block:
@@ -33,7 +35,7 @@ O      = alpha * O + P @ V       # accumulate output
 m      = m_new
 ```
 
-At the end: `O = O / l`. Same result as standard softmax, never wrote the N×N matrix anywhere.
+At the end: `O = O / l`. Same result as standard softmax, never wrote the NxN matrix anywhere.
 
 ## Implementation
 
@@ -152,7 +154,7 @@ causal=False max error: 1.5e-03  ✓
 causal=True  max error: 2.4e-03  ✓
 ```
 
-Larger than float64 precision but well within `atol=1e-2` — expected for float32 online softmax.
+Larger than float64 precision but well within `atol=1e-2` - expected for float32 online softmax.
 
 ## Causal mask
 
@@ -166,7 +168,7 @@ S = tl.where(q_idx[:, None] >= k_idx[None, :], S, float('-inf'))
 
 Setting future positions to `-inf` means `exp(-inf) = 0`, so they contribute nothing. Online softmax handles this correctly without any special casing.
 
-One thing I noticed: when an entire K block is in the future (all positions masked), the kernel still runs the full computation. FlashAttention v2 skips those blocks entirely — that's a big part of why v2 is ~2x faster on causal models.
+One thing I noticed: when an entire K block is in the future (all positions masked), the kernel still runs the full computation. FlashAttention v2 skips those blocks entirely - that's a big part of why v2 is ~2x faster on causal models.
 
 ## Autotuning
 
@@ -181,16 +183,39 @@ I tested 6 configs. The A10 picked BLOCK_Q=64, BLOCK_K=64, num_warps=4 every tim
 | 128     | 64      | 8         | slower   |
 | 128     | 128     | 8         | slower   |
 
-I expected BLOCK_Q=128 to win on the A10 — it has 96 KB of shared memory per SM, so larger blocks fit:
+I expected BLOCK_Q=128, BLOCK_K=128 to win on the A10 - it has 96 KB of shared memory per SM, so larger blocks fit:
 
 ```
-BLOCK_Q=128: 128 x 64 x 4 bytes = 32 KB (Q)
-             + 32 KB (K) + 32 KB (V) = 96 KB  fits exactly
+BLOCK_Q=128, BLOCK_K=128:
+  Q: 128 x 64 x 4 bytes = 32 KB
+  K: 128 x 64 x 4 bytes = 32 KB
+  V: 128 x 64 x 4 bytes = 32 KB
+  total = 96 KB  fits exactly
 ```
 
-But it still lost. After some digging: the bottleneck isn't SRAM anymore, it's **registers**. With BLOCK_Q=128 the kernel keeps a [128, 64] output accumulator `O` live across the entire K-loop — 8,192 float32 values = 32 KB of registers per warp. Each SM has 65,536 registers total. Bigger Q blocks means fewer warps can live on the SM simultaneously, so the GPU can't hide memory latency as well.
+But it still lost. The bottleneck shifted from SRAM to **registers**.
 
-On T4 (48 KB SRAM), BLOCK_Q=128 was too big for SRAM. On A10 (96 KB SRAM) it fits, but registers became the new ceiling. Different GPU, same winner, different reason.
+Each SM has 65,536 registers total, shared across all resident warps. The `O` accumulator - the running output that stays live across the entire K-loop - eats most of it:
+
+```
+BLOCK_Q=128: O is [128, 64] float32 = 8,192 values = 8,192 registers per warp
+BLOCK_Q=64:  O is [64,  64] float32 = 4,096 values = 4,096 registers per warp
+```
+
+Adding other live values (Q block, m, l, loop counters, pointers):
+
+```
+BLOCK_Q=128: ~10,000 registers per warp → 65,536 / 10,000 ≈ 6 warps fit on SM
+BLOCK_Q=64:  ~5,000  registers per warp → 65,536 / 5,000  ≈ 13 warps fit on SM
+```
+
+Fewer warps means less **latency hiding**. HBM (the GPU's main memory) has ~300 cycle latency. Every time a warp issues a memory load for a K or V block, it stalls for those 300 cycles. The GPU hides this by switching to another ready warp - but only if there are enough warps resident on the SM.
+
+With 6 warps, when one stalls on a memory load there are fewer warps to switch to. The SM sits idle waiting. With 13 warps, the SM stays busy with other warps' compute while the first warp waits.
+
+Now you might think: BLOCK_Q=128 does 2x more output computation per warp, so shouldn't it break even? The problem is the dominant cost isn't the output accumulation - it's the K and V memory loads every inner loop iteration. Both block sizes pay the same K/V load cost per output row. BLOCK_Q=128 gets 2x the compute but also 2x the register pressure, and the latency hiding loss wins.
+
+So even with 96 KB SRAM, the winner is still BLOCK_Q=64. The constraint just moved from SRAM to registers.
 
 ## Numbers
 
@@ -205,7 +230,7 @@ A10, float32, 25 warmup + 100 rep:
 | 2     | 4     | 256  | yes    | 0.016 | 128.2 |
 | 2     | 4     | 1024 | yes    | 0.078 | 106.9 |
 
-Peak: 132.3 GB/s out of 600 GB/s — 22% of theoretical max.
+Peak: 132.3 GB/s out of 600 GB/s - 22% of theoretical max.
 
 ## Why only 22%?
 
@@ -213,15 +238,15 @@ Two things.
 
 **Tensors are too small.** batch=2, heads=4, seq=256, head_dim=64 in float32 is about 1 MB total. The A10 can push 600 GB/s with large sustained transfers. With 1 MB, you're mostly paying for kernel launch overhead and HBM latency. seq=1024 is better (109 GB/s) but still not enough data to saturate the bus.
 
-**Register pressure limits occupancy to 17%.** Nsight shows only 17% of SMs active at once. Inside the K loop, `Q` and `O` are both [64, 64] float32 — that's 32 KB of registers just for those two. With that much register pressure, only a few warps can live on each SM. When a warp stalls on a memory load, there aren't enough other warps to fill the gap.
+**Register pressure limits occupancy.** Inside the K loop, `Q` and `O` are both [64, 64] float32 - that's 32 KB of registers just for those two. With that much register pressure, only a few warps can live on each SM at once. When a warp stalls on a memory load, there aren't enough other warps to fill the gap.
 
-FlashAttention v2 fixes this by changing the loop structure to reduce the live register set. v3 on H100 goes further — separate "producer" warps handle memory loads while "consumer" warps do math, both running in parallel. That's where the other 78% lives.
+FlashAttention v2 fixes this by changing the loop structure to reduce the live register set. v3 on H100 goes further - separate "producer" warps handle memory loads while "consumer" warps do math, both running in parallel. That's where the other 78% lives.
 
 ## What I got out of this
 
 Getting the kernel correct took a day. Getting it to pass the numerical tests took another day (the causal masking had an off-by-one I kept missing). Then a week of reading to understand why the numbers are what they are.
 
-The SRAM vs register insight was the most useful thing — I went in thinking "bigger blocks = better" and came out understanding that on Ampere, SRAM is no longer the constraint. It shifted to registers, and that requires a different algorithm (v2), not just different block sizes.
+The SRAM vs register insight was the most useful thing - I went in thinking "bigger blocks = better" and came out understanding that on Ampere, SRAM is no longer the constraint. It shifted to registers, and that requires a different algorithm (v2), not just different block sizes.
 
 132 GB/s sounds decent until you realize vLLM's FlashAttention hits much closer to peak. The gap is real, and now I understand where it comes from.
 
@@ -250,3 +275,10 @@ for batch, heads, seq_len, head_dim, causal in configs:
 ```
 
 Needs Triton >= 2.0, CUDA GPU, head_dim in (32, 64, 128), seq_len divisible by 64.
+
+## References
+
+- Dao et al. (2022). FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness. [https://arxiv.org/abs/2205.14135](https://arxiv.org/abs/2205.14135)
+- Dao et al. (2023). FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning. [https://arxiv.org/abs/2307.08691](https://arxiv.org/abs/2307.08691)
+- Triton documentation. [https://triton-lang.org](https://triton-lang.org)
+- NVIDIA A10 GPU datasheet. [https://www.nvidia.com/en-us/data-center/products/a10-gpu](https://www.nvidia.com/en-us/data-center/products/a10-gpu)
