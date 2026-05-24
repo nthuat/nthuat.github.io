@@ -23,6 +23,8 @@ The paper (Dao et al., 2022) is 26 pages. After reading it I could explain the a
 
 Instead of computing the full NxN matrix and writing it to HBM, FlashAttention tiles Q into blocks and iterates over K/V blocks, computing the output incrementally. The Q block stays in SRAM (fast on-chip memory) the whole time. No NxN materialization.
 
+![FlashAttention tiling memory layout](/assets/flashattention_tiling.svg)
+
 The trick that makes this work is **online softmax** - you normally need two passes (one to find the max for numerical stability, one to compute exp and normalize). Online softmax does it in one pass with running accumulators:
 
 ```python
@@ -36,6 +38,8 @@ m      = m_new
 ```
 
 At the end: `O = O / l`. Same result as standard softmax, never wrote the NxN matrix anywhere.
+
+![FlashAttention online softmax per K-block iteration](/assets/flashattention_online_softmax.svg)
 
 ## Implementation
 
