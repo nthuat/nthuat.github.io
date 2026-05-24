@@ -250,7 +250,7 @@ Inside the K-block loop, the kernel keeps these live simultaneously:
 
 Each SM has 65,536 registers total. With this register footprint, only a small number of warps can be resident per SM - so even when one warp stalls waiting for memory, there aren't enough other warps to keep the SM busy.
 
-This is what FlashAttention v2 fixes: it restructures the outer loop to reduce the live register set. The v3 paper goes further with warp specialization on H100 - dedicated "producer" warps load data while "consumer" warps compute, overlapping both completely. That's where the remaining 82% of peak lives.
+This is what FlashAttention v2 fixes: it restructures the outer loop to reduce the live register set. The v3 paper goes further with warp specialization on H100 - dedicated "producer" warps load data while "consumer" warps compute, overlapping both completely. That's where the remaining 78% of peak lives.
 
 ## 8. What I actually learned
 
