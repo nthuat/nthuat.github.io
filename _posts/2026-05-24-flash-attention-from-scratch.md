@@ -3,9 +3,9 @@ layout: post
 title: Building FlashAttention from Scratch on an A10G - What the Numbers Actually Say
 ---
 
-I spent the last two weeks building FlashAttention from scratch in Triton. Not to use it in production — vLLM already ships a better one. I built it to understand what "IO-aware" actually means, why the online softmax trick works, and what autotuning does on a real GPU.
+I spent the last two weeks building FlashAttention from scratch in Triton. Not to use it in production - vLLM already ships a better one. I built it to understand what "IO-aware" actually means, why the online softmax trick works, and what autotuning does on a real GPU.
 
-Here's what I learned and what the numbers actually say — benchmarked on an A10G.
+Here's what I learned and what the numbers actually say - benchmarked on an A10G.
 
 ## Why build it yourself?
 
@@ -23,7 +23,7 @@ O = softmax(Q @ K.T / sqrt(d)) @ V
 
 For sequence length N and head dimension d, this materializes an N×N attention matrix in HBM (GPU DRAM). At N=8192 and float16, that's 8192² × 2 bytes = 128 MB **per head**. With 32 heads you're at 4 GB just for attention weights.
 
-The bottleneck isn't compute — it's memory bandwidth. Reading and writing that N×N matrix dominates runtime.
+The bottleneck isn't compute - it's memory bandwidth. Reading and writing that N×N matrix dominates runtime.
 
 ## 2. Tiled FlashAttention: the key idea
 
@@ -164,7 +164,7 @@ causal=False max error: 1.5e-03  ✓
 causal=True  max error: 2.4e-03  ✓
 ```
 
-The errors are larger than float64 precision but well within `atol=1e-2` — expected for float32 with online softmax accumulation across blocks.
+The errors are larger than float64 precision but well within `atol=1e-2` - expected for float32 with online softmax accumulation across blocks.
 
 ## 4. Causal mask
 
@@ -179,7 +179,7 @@ S = tl.where(causal_mask, S, float('-inf'))
 
 Setting masked positions to `-inf` before the softmax means `exp(-inf) = 0`, so they contribute nothing to the output. The online softmax handles this correctly without any special casing.
 
-One subtlety: when `q_block_idx * BLOCK_Q < k_block_idx * BLOCK_K`, the entire block is masked. The kernel still runs the computation — a real implementation (FlashAttention v2) skips these blocks entirely, which is part of why v2 is ~2× faster for causal models.
+One subtlety: when `q_block_idx * BLOCK_Q < k_block_idx * BLOCK_K`, the entire block is masked. The kernel still runs the computation - a real implementation (FlashAttention v2) skips these blocks entirely, which is part of why v2 is ~2× faster for causal models.
 
 ## 5. Autotuning
 
@@ -198,7 +198,7 @@ I tested 6 configs on A10G:
 
 **Why BLOCK_Q=128 still loses on A10G:**
 
-A10G has 96 KB of shared memory per SM — double the T4's 48 KB. So BLOCK_Q=128 now fits in SRAM:
+A10G has 96 KB of shared memory per SM - double the T4's 48 KB. So BLOCK_Q=128 now fits in SRAM:
 
 ```
 BLOCK_Q=128: 128 x 64 x 4 bytes = 32 KB (Q)
@@ -207,7 +207,7 @@ BLOCK_Q=128: 128 x 64 x 4 bytes = 32 KB (Q)
 
 But autotune still picked BLOCK_Q=64. The bottleneck shifted from SRAM to **register pressure**.
 
-With BLOCK_Q=128, the kernel keeps a [128, 64] `O` accumulator live across the entire K-loop — that's 8,192 float32 values = 32 KB of registers per warp. Each A10G SM has 65,536 registers total. Larger Q blocks mean fewer warps can be resident simultaneously, which reduces the GPU's ability to hide memory latency. SRAM was the hard constraint on T4; registers are the hard constraint on A10G.
+With BLOCK_Q=128, the kernel keeps a [128, 64] `O` accumulator live across the entire K-loop - that's 8,192 float32 values = 32 KB of registers per warp. Each A10G SM has 65,536 registers total. Larger Q blocks mean fewer warps can be resident simultaneously, which reduces the GPU's ability to hide memory latency. SRAM was the hard constraint on T4; registers are the hard constraint on A10G.
 
 ## 6. Benchmark results
 
@@ -222,7 +222,7 @@ Measured on Modal A10G (float32, `do_bench` with 25 warmup + 100 rep):
 | batch=2, heads=4, seq=256  (causal) | 0.020 | 104.7 |
 | batch=2, heads=4, seq=1024 (causal) | 0.106 |  78.8 |
 
-A10G peak HBM bandwidth: **600 GB/s**. Peak measured: **106.4 GB/s** — about 17.7% of peak.
+A10G peak HBM bandwidth: **600 GB/s**. Peak measured: **106.4 GB/s** - about 17.7% of peak.
 
 ## 7. Why 17.7% of peak bandwidth?
 
@@ -236,11 +236,11 @@ At batch=2, heads=4, seq=256, head_dim=64, float32:
 tensor size = 2 x 4 x 256 x 64 x 4 bytes = 1 MB
 ```
 
-1 MB is tiny. The A10G can saturate its 600 GB/s bandwidth only with large, sustained transfers. For 1 MB, kernel launch overhead and HBM latency dominate actual transfer time. Notice that seq=1024 drops to 79.8 GB/s — more data doesn't fully compensate because the working set is still small.
+1 MB is tiny. The A10G can saturate its 600 GB/s bandwidth only with large, sustained transfers. For 1 MB, kernel launch overhead and HBM latency dominate actual transfer time. Notice that seq=1024 drops to 79.8 GB/s - more data doesn't fully compensate because the working set is still small.
 
 **Factor 2: 17% SM occupancy**
 
-Nsight reports ~17% occupancy — only 17% of A10G's SMs are active simultaneously. The root cause is **register pressure**.
+Nsight reports ~17% occupancy - only 17% of A10G's SMs are active simultaneously. The root cause is **register pressure**.
 
 Inside the K-block loop, the kernel keeps these live simultaneously:
 - `Q`: [64, 64] float32 = 4,096 floats = 16 KB of registers
@@ -248,9 +248,9 @@ Inside the K-block loop, the kernel keeps these live simultaneously:
 - `m`, `l`: [64] float32 = negligible
 - `K`, `V`, `S`, `P`: loaded and used each iteration
 
-Each SM has 65,536 registers total. With this register footprint, only a small number of warps can be resident per SM — so even when one warp stalls waiting for memory, there aren't enough other warps to keep the SM busy.
+Each SM has 65,536 registers total. With this register footprint, only a small number of warps can be resident per SM - so even when one warp stalls waiting for memory, there aren't enough other warps to keep the SM busy.
 
-This is what FlashAttention v2 fixes: it restructures the outer loop to reduce the live register set. The v3 paper goes further with warp specialization on H100 — dedicated "producer" warps load data while "consumer" warps compute, overlapping both completely. That's where the remaining 82% of peak lives.
+This is what FlashAttention v2 fixes: it restructures the outer loop to reduce the live register set. The v3 paper goes further with warp specialization on H100 - dedicated "producer" warps load data while "consumer" warps compute, overlapping both completely. That's where the remaining 82% of peak lives.
 
 ## 8. What I actually learned
 
@@ -263,7 +263,7 @@ I can reproduce the online softmax. I understand why tiling reduces HBM traffic.
 3. Larger sequences to amortize kernel launch overhead
 4. float16/bfloat16 for 2x bandwidth improvement
 
-The gap between my 106 GB/s and what vLLM ships isn't a bug — it's the rest of the engineering.
+The gap between my 106 GB/s and what vLLM ships isn't a bug - it's the rest of the engineering.
 
 ## Reproducing the benchmark
 
