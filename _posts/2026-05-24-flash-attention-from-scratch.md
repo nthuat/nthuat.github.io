@@ -9,7 +9,7 @@ Here's what I learned and what the numbers actually say - benchmarked on an A10.
 
 ## Why build it yourself?
 
-The FlashAttention paper (Dao et al., 2022) is 26 pages. After reading it I could explain the algorithm. But I couldn't tell you *why* BLOCK_Q=128 might be worse than BLOCK_Q=64 on an A10, or what 17% occupancy means, or why bandwidth is 17% of peak even on fast hardware.
+The FlashAttention paper (Dao et al., 2022) is 26 pages. After reading it I could explain the algorithm. But I couldn't tell you *why* BLOCK_Q=128 might be worse than BLOCK_Q=64 on an A10, or what 17% occupancy means, or why bandwidth is 22% of peak even on fast hardware.
 
 The only way to know those things is to run the code and stare at the numbers.
 
