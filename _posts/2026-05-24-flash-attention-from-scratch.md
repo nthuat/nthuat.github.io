@@ -140,6 +140,25 @@ def flash_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, causal: b
 
 **Correctness check** against `F.scaled_dot_product_attention`:
 
+```python
+import torch.nn.functional as F
+
+batch, num_heads, seq_len, head_dim = 2, 4, 256, 64
+Q = torch.randn(batch, num_heads, seq_len, head_dim, device="cuda")
+K = torch.randn(batch, num_heads, seq_len, head_dim, device="cuda")
+V = torch.randn(batch, num_heads, seq_len, head_dim, device="cuda")
+
+out = flash_attention(Q, K, V, causal=False)
+expected = F.scaled_dot_product_attention(Q, K, V)
+print("causal=False max error:", (out - expected).abs().max().item())
+assert torch.allclose(out, expected, atol=1e-2)
+
+out_causal = flash_attention(Q, K, V, causal=True)
+expected_causal = F.scaled_dot_product_attention(Q, K, V, is_causal=True)
+print("causal=True  max error:", (out_causal - expected_causal).abs().max().item())
+assert torch.allclose(out_causal, expected_causal, atol=1e-2)
+```
+
 ```
 causal=False max error: 1.5e-03  ✓
 causal=True  max error: 2.4e-03  ✓
@@ -246,6 +265,28 @@ I can reproduce the online softmax. I understand why tiling reduces HBM traffic.
 
 The gap between my 106 GB/s and what vLLM ships isn't a bug — it's the rest of the engineering.
 
-## Code
+## Reproducing the benchmark
 
-Full implementation is in the post above. The kernel requires Triton >= 2.0 and a CUDA GPU with head_dim in (32, 64, 128) and seq_len divisible by 64.
+```python
+configs = [
+    (1, 1,  256, 64, False),
+    (1, 1, 1024, 64, False),
+    (2, 4,  256, 64, False),
+    (2, 4, 1024, 64, False),
+    (2, 4,  256, 64, True),
+    (2, 4, 1024, 64, True),
+]
+
+print(f"{'batch':>5} {'heads':>5} {'seq':>6} {'dim':>5} {'causal':>7} {'ms':>8} {'GB/s':>8}")
+print("-" * 55)
+for batch, heads, seq_len, head_dim, causal in configs:
+    Q = torch.randn(batch, heads, seq_len, head_dim, device="cuda", dtype=torch.float32)
+    K = torch.randn(batch, heads, seq_len, head_dim, device="cuda", dtype=torch.float32)
+    V = torch.randn(batch, heads, seq_len, head_dim, device="cuda", dtype=torch.float32)
+    ms = triton.testing.do_bench(lambda: flash_attention(Q, K, V, causal=causal), warmup=25, rep=100)
+    total_bytes = 4 * batch * heads * seq_len * head_dim * 4  # 4 tensors, float32 = 4 bytes
+    gb_s = (total_bytes / 1e9) / (ms / 1e3)
+    print(f"{batch:>5} {heads:>5} {seq_len:>6} {head_dim:>5} {str(causal):>7} {ms:>8.3f} {gb_s:>8.1f}")
+```
+
+Requires Triton >= 2.0, CUDA GPU, head_dim in (32, 64, 128), seq_len divisible by 64.
