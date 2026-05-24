@@ -19,7 +19,7 @@ The issue is that NxN matrix. At seq_len=8192 and float16, that's 8192² × 2 by
 
 ## The FlashAttention idea
 
-The paper (Dao et al., 2022) is 26 pages. After reading it I could explain the algorithm - but I couldn't tell you why BLOCK_Q=128 might be slower than BLOCK_Q=64, or why we're only hitting 22% of peak bandwidth. Writing the code forced me to actually figure that out.
+The paper (Tri Dao et al., 2022) is 26 pages. After reading it I could explain the algorithm - but I couldn't tell you why BLOCK_Q=128 might be slower than BLOCK_Q=64, or why we're only hitting 22% of peak bandwidth. Writing the code forced me to actually figure that out.
 
 Instead of computing the full NxN matrix and writing it to HBM, FlashAttention tiles Q into blocks and iterates over K/V blocks, computing the output incrementally. The Q block stays in SRAM (fast on-chip memory) the whole time. No NxN materialization.
 
@@ -282,7 +282,7 @@ Needs Triton >= 2.0, CUDA GPU, head_dim in (32, 64, 128), seq_len divisible by 6
 
 ## References
 
-- Dao et al. (2022). FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness. [https://arxiv.org/abs/2205.14135](https://arxiv.org/abs/2205.14135)
-- Dao et al. (2023). FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning. [https://arxiv.org/abs/2307.08691](https://arxiv.org/abs/2307.08691)
+- Tri Dao et al. (2022). FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness. [https://arxiv.org/abs/2205.14135](https://arxiv.org/abs/2205.14135)
+- Tri Dao et al. (2023). FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning. [https://arxiv.org/abs/2307.08691](https://arxiv.org/abs/2307.08691)
 - Triton documentation. [https://triton-lang.org](https://triton-lang.org)
 - NVIDIA A10 GPU datasheet. [https://www.nvidia.com/en-us/data-center/products/a10-gpu](https://www.nvidia.com/en-us/data-center/products/a10-gpu)
