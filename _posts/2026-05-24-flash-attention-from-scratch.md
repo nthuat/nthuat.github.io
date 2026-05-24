@@ -3,7 +3,7 @@ layout: post
 title: Building FlashAttention from Scratch on an A10 - What the Numbers Actually Say
 ---
 
-I've been learning GPU kernels for the past month. vLLM ships FlashAttention already — I didn't need to build one. But I couldn't read the paper and actually understand it without writing the code myself. So I spent two weeks building it in Triton and running it on a real GPU.
+I spent the last two weeks building FlashAttention from scratch in Triton. Not to use it in production - vLLM already ships a better one. I built it to understand what "IO-aware" actually means, why the online softmax trick works, and what autotuning does on a real GPU.
 
 Here's what I found out.
 
