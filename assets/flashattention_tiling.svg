@@ -1,5 +1,5 @@
 <svg width="680" viewBox="0 0 680 480" xmlns="http://www.w3.org/2000/svg" role="img">
-  <title>FlashAttention: tiling memory layout (A10)</title>
+  <title>FlashAttention: tiling memory layout (A10G)</title>
   <desc>Shows how Q/K/V tiles move from HBM into SRAM on A10G, with output written back once.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -19,7 +19,7 @@
   <rect width="680" height="480" fill="#fafaf9"/>
 
   <!-- Section label -->
-  <text class="section-tag" x="40" y="30">Memory layout - A10</text>
+  <text class="section-tag" x="40" y="30">Memory layout - A10G</text>
 
   <!-- HBM container -->
   <rect x="32" y="44" width="248" height="310" rx="10" fill="#f1efe8" stroke="#888780" stroke-width="0.5"/>
@@ -56,7 +56,7 @@
   <!-- SRAM container -->
   <rect x="400" y="44" width="244" height="310" rx="10" fill="#faeeda" stroke="#854F0B" stroke-width="0.5"/>
   <text class="label-bold" x="522" y="68" text-anchor="middle" fill="#633806">SRAM</text>
-  <text class="label-sm" x="522" y="84" text-anchor="middle" fill="#854F0B">on-chip · ~96 KB (A10)</text>
+  <text class="label-sm" x="522" y="84" text-anchor="middle" fill="#854F0B">on-chip · ~96 KB (A10G)</text>
 
   <!-- q_tile -->
   <rect x="416" y="100" width="100" height="56" rx="6" fill="#eeedfe" stroke="#534AB7" stroke-width="0.5"/>
@@ -98,5 +98,5 @@
   <!-- Callout -->
   <rect x="32" y="406" width="612" height="52" rx="8" fill="#faeeda" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="4 3"/>
   <text class="label-md" x="338" y="426" text-anchor="middle" fill="#633806">K and V each read once per Q-tile regardless of N. No N×N matrix in HBM.</text>
-  <text class="label-sm" x="338" y="446" text-anchor="middle" fill="#854F0B">A10: SRAM fits BLOCK_Q=128 - but register pressure makes BLOCK_Q=64 faster.</text>
+  <text class="label-sm" x="338" y="446" text-anchor="middle" fill="#854F0B">A10G: SRAM fits BLOCK_Q=128 - but register pressure makes BLOCK_Q=64 faster.</text>
 </svg>

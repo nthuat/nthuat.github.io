@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Building FlashAttention from Scratch on an A10 - What the Numbers Actually Say
+title: Building FlashAttention from Scratch on an A10G - What the Numbers Actually Say
 ---
 
 I spent the last two weeks building FlashAttention from scratch in Triton. Not to use it in production - vLLM already ships a better one. I built it to understand what "IO-aware" actually means, why the online softmax trick works, and what autotuning does on a real GPU.
@@ -176,7 +176,7 @@ One thing I noticed: when an entire K block is in the future (all positions mask
 
 ## Autotuning
 
-I tested 6 configs. The A10 picked BLOCK_Q=64, BLOCK_K=64, num_warps=4 every time.
+I tested 6 configs. The A10G picked BLOCK_Q=64, BLOCK_K=64, num_warps=4 every time.
 
 | BLOCK_Q | BLOCK_K | num_warps | result   |
 |---------|---------|-----------|----------|
@@ -187,7 +187,7 @@ I tested 6 configs. The A10 picked BLOCK_Q=64, BLOCK_K=64, num_warps=4 every tim
 | 128     | 64      | 8         | slower   |
 | 128     | 128     | 8         | slower   |
 
-I expected BLOCK_Q=128, BLOCK_K=128 to win on the A10 - it has 96 KB of shared memory per SM, so larger blocks fit:
+I expected BLOCK_Q=128, BLOCK_K=128 to win on the A10G - it has 96 KB of shared memory per SM, so larger blocks fit:
 
 ```
 BLOCK_Q=128, BLOCK_K=128:
@@ -223,7 +223,7 @@ So even with 96 KB SRAM, the winner is still BLOCK_Q=64. The constraint just mov
 
 ## Numbers
 
-A10, float32, 25 warmup + 100 rep:
+A10G, float32, 25 warmup + 100 rep:
 
 | batch | heads | seq  | causal | ms    | GB/s  |
 |-------|-------|------|--------|-------|-------|
@@ -240,7 +240,7 @@ Peak: 132.3 GB/s out of 600 GB/s - 22% of theoretical max.
 
 Two things.
 
-**Tensors are too small.** batch=2, heads=4, seq=256, head_dim=64 in float32 is about 1 MB total. The A10 can push 600 GB/s with large sustained transfers. With 1 MB, you're mostly paying for kernel launch overhead and HBM latency. seq=1024 is better (109 GB/s) but still not enough data to saturate the bus.
+**Tensors are too small.** batch=2, heads=4, seq=256, head_dim=64 in float32 is about 1 MB total. The A10G can push 600 GB/s with large sustained transfers. With 1 MB, you're mostly paying for kernel launch overhead and HBM latency. seq=1024 is better (109 GB/s) but still not enough data to saturate the bus.
 
 **Register pressure limits occupancy.** Inside the K loop, `Q` and `O` are both [64, 64] float32 - that's 32 KB of registers just for those two. With that much register pressure, only a few warps can live on each SM at once. When a warp stalls on a memory load, there aren't enough other warps to fill the gap.
 
@@ -285,4 +285,3 @@ Needs Triton >= 2.0, CUDA GPU, head_dim in (32, 64, 128), seq_len divisible by 6
 - Tri Dao et al. (2022). FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness. [https://arxiv.org/abs/2205.14135](https://arxiv.org/abs/2205.14135)
 - Tri Dao et al. (2023). FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning. [https://arxiv.org/abs/2307.08691](https://arxiv.org/abs/2307.08691)
 - Triton documentation. [https://triton-lang.org](https://triton-lang.org)
-- NVIDIA A10 GPU datasheet. [https://www.nvidia.com/en-us/data-center/products/a10-gpu](https://www.nvidia.com/en-us/data-center/products/a10-gpu)
