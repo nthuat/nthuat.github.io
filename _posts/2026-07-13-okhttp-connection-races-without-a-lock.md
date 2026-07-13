@@ -46,21 +46,6 @@ place.
 Every connection attempt checks the pool at **three points**, whether
 it's racing another thread or running alone:
 
-```
-CHECK 1: before DNS
-   "is a connection already there?"
-
-   (resolve DNS)
-
-CHECK 2: after DNS, before the handshake
-   "now I know the route, is one there?"
-
-   ══ HANDSHAKE (TCP + TLS): happens once, right here ══
-
-CHECK 3: right after my own handshake finishes
-   "did another thread finish one too, while I was busy?"
-```
-
 ```mermaid
 flowchart TD
     Start["Need a connection"] --> C1{"Check 1: pool hit?"}
@@ -88,8 +73,8 @@ override fun plan(): Plan {
     val pooled1 = planReusePooledConnection()
     if (pooled1 != null) return pooled1
 
-    // (skipped here: a Fast Fallback step, a separate feature
-    // for trying many IPs at once)
+    // (skipped here: a deferred-route check, part of Fast Fallback,
+    // OkHttp's Happy-Eyeballs-style feature for trying many IPs at once)
 
     // Do blocking DNS resolution
     val connect = planConnect()
