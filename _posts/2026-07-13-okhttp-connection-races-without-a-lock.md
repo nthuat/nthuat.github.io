@@ -73,8 +73,9 @@ override fun plan(): Plan {
     val pooled1 = planReusePooledConnection()
     if (pooled1 != null) return pooled1
 
-    // (skipped here: a deferred-route check, part of Fast Fallback,
-    // OkHttp's Happy-Eyeballs-style feature for trying many IPs at once)
+    // (skipped here: a generic check for backup plans an outer caller
+    // may have queued up, e.g. OkHttp's Fast Fallback exchange finder,
+    // a separate class that races multiple IPs Happy-Eyeballs-style)
 
     // Do blocking DNS resolution
     val connect = planConnect()
@@ -145,6 +146,12 @@ because it started at almost the same moment as Thread A. Everyone else
 either goes first, or arrives late enough to find the answer already
 there.
 
+Thread C is the clean case: it shows up after the race is already
+settled. But a fourth or fifth thread could just as easily have started
+in that same narrow window, before check 3 ever cleared the pool, and
+each of those would waste a handshake too. The wasted work scales with
+how many requests land in that gap, it isn't capped at exactly one.
+
 ## The tradeoff behind this design
 
 A lock gives you certainty, but it costs something on *every single
@@ -210,10 +217,13 @@ flowchart TB
     end
 ```
 
-(Note: each host normally keeps just one HTTP/2 connection in the pool
-at a time, since one connection already serves unlimited requests. The
-three entries above are three *different* hosts on purpose, not three
-connections to the same one.)
+(Note: this "one connection per host" pattern is specific to HTTP/2
+hosts, since one HTTP/2 connection already serves unlimited requests.
+An HTTP/1.1 host can and does keep several pooled connections at once,
+since each one only serves a single request at a time, that's the
+whole reason `maxIdleConnections` exists. The three entries above are
+three *different* hosts on purpose, not three connections to the same
+one.)
 
 OkHttp's own comment on this field says so directly:
 
