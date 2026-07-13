@@ -73,9 +73,8 @@ override fun plan(): Plan {
     val pooled1 = planReusePooledConnection()
     if (pooled1 != null) return pooled1
 
-    // (skipped here: a generic check for backup plans an outer caller
-    // may have queued up, e.g. OkHttp's Fast Fallback exchange finder,
-    // a separate class that races multiple IPs Happy-Eyeballs-style)
+    // Attempt a deferred plan before new routes.
+    if (deferredPlans.isNotEmpty()) return deferredPlans.removeFirst()
 
     // Do blocking DNS resolution
     val connect = planConnect()
