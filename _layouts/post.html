@@ -8,6 +8,18 @@ layout: default
   {{ content }}
 </div>
 
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  document.querySelectorAll('code.language-mermaid').forEach((codeEl) => {
+    const wrapper = codeEl.closest('.highlighter-rouge') || codeEl.closest('pre') || codeEl.parentElement;
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = codeEl.textContent;
+    wrapper.replaceWith(div);
+  });
+  mermaid.initialize({ startOnLoad: true, theme: 'default' });
+</script>
+
 {% if site.related_posts.size >= 1 %}
 <div class="related">
   <h2>Related posts</h2>
