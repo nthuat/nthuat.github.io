@@ -44,7 +44,10 @@ not compiled, and the interpreter runs it.
 
 Once you accept that compiling to native is optional, the picture opens up.
 There are three routes from your bytecode to the CPU, and an app uses all
-three of them at once.
+three at once: it can **interpret** the bytecode as-is, **JIT** it (compile a
+hot method to native while the app runs), or **AOT**-compile it (turn methods
+into native code ahead of time, with a tool called `dex2oat`). The diagram
+traces all three down to the same CPU.
 
 ```mermaid
 flowchart TD
@@ -62,18 +65,10 @@ flowchart TD
 The trick is in the bottom row. Every route ends at the CPU as native code,
 and the only difference is whose native code it is. When interpreting, the
 native code the CPU runs is the interpreter, not your method, while with JIT
-or AOT it's your own method, compiled.
-
-- **Interpret** is the translator reading aloud. No prep, works immediately,
-  slower every time.
-- **JIT** (Just-In-Time) is ART noticing a method runs a lot and compiling
-  that method to native while the app runs. Fast after that, but the warm-up
-  repeats on every cold start.
-- **AOT** (Ahead-Of-Time) is a tool called `dex2oat` compiling methods to
-  native in advance. They're already native before the app starts.
-
-JIT and AOT both print a translated copy of the book. Someone translates
-once, and after that you read it directly.
+or AOT it's your own method, compiled. The difference between those two
+compiled routes is just timing: JIT pays the warm-up on every cold start,
+while AOT does the work ahead of time so the method is already native before
+the app even opens.
 
 ## Watching the modes switch live, on a real app
 
@@ -154,12 +149,13 @@ before `-m speed` produced `speed`.
 **Two: profile-guided compilation does nothing on a fresh app.** There's a
 third mode, `speed-profile`, and it's the default Android uses. It compiles
 only the methods a profile marks as hot, not everything. I ran it on a
-freshly installed app and the status stayed at `verify`. Nothing compiled,
-and the reason is simple: a profile records which methods ran hot in real
-use, and an app that has never run has no profile, so `speed-profile` has
-nothing to compile. This is the gap Baseline Profiles fill. They ship a
-ready-made profile inside the APK, so `speed-profile` has something to work
-with from the first launch instead of after several.
+freshly installed app of my own that shipped no Baseline Profile, and the
+status stayed at `verify`. Nothing compiled, and the reason is simple: a
+profile records which methods ran hot in real use, and an app that has never
+run has no profile, so `speed-profile` has nothing to compile. This is the
+gap Baseline Profiles fill. They ship a ready-made profile inside the APK, so
+`speed-profile` has something to work with from the first launch instead of
+after several.
 
 **Three: fresh installs really do compile nothing to native.** That opening
 `verify` status wasn't a fluke, it's the default. Since Android 7, apps
@@ -192,15 +188,14 @@ interpreter carrying a fresh install is the design working as intended.
 
 ## Worth remembering
 
-Next time you're sure some code must be compiled because it clearly runs,
-check. Running and native aren't the same claim. An interpreter is native
-code that runs your bytecode without ever compiling it. A lot of your app
-spends its early life right there.
-
-And when a concept has a runtime you can poke at, poke at it. Two `adb`
-commands turned "there are three execution modes" from a sentence I'd read
-into three results I'd watched happen. The diagram was right. Running it was
-what made me believe it.
+The idea worth keeping is that verified, compiled, and fast are three
+different things, and it's easy to assume an app that clearly runs is all
+three. A fresh install is only verified. Compilation is a separate step that
+might not have happened yet, and even when it has, it only covers the methods
+a profile marked as hot. None of this shows from the outside, because the app
+runs fine in every state. The only way to know which one you're in is to go
+and measure it, which is exactly why two `adb` commands were more convincing
+to me than any diagram I'd read.
 
 ---
 
