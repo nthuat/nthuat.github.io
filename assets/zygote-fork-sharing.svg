@@ -1,0 +1,65 @@
+<svg width="720" viewBox="0 0 720 452" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>Zygote fork and copy-on-write: shared runtime, private state</title>
+  <desc>Android boots one Zygote process that loads ART once and preloads the framework. Every app is forked from it, so all apps share the read-only runtime code and preloaded pages copy-on-write, while each app keeps its own heap and runtime state.</desc>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .st { fill:none; stroke:#2A3A4A; stroke-width:1.3; }
+    .txt { fill:#1C2B3A; } .soft { fill:#5A6B7D; } .tacc { fill:#2E6E8E; } .tgreen { fill:#2F7D5B; }
+    .fapp { fill:#FFFFFF; } .fzy { fill:#E1EEF4; } .fshare { fill:#DFF0E7; } .fpriv { fill:#EDEFF2; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    .serif { font-family: Georgia, "Times New Roman", serif; font-style:italic; }
+    .afork { fill:none; stroke:#2A3A4A; stroke-width:1.4; }
+    .apriv { fill:none; stroke:#5A6B7D; stroke-width:1.4; }
+    .ashare { fill:none; stroke:#2F7D5B; stroke-width:1.5; stroke-dasharray:5 3; }
+  </style>
+  <defs>
+    <marker id="md" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#2A3A4A"/></marker>
+    <marker id="mg" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#5A6B7D"/></marker>
+    <marker id="ms" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#2F7D5B"/></marker>
+  </defs>
+
+  <rect x="1" y="1" width="718" height="450" rx="8" fill="#F8FAFC" stroke="#DDE4EC"/>
+
+  <text x="360" y="26" text-anchor="middle" class="serif soft" font-size="11">every app is forked from one Zygote: the runtime is shared, each app's own state is not</text>
+
+  <!-- Zygote -->
+  <rect x="253" y="42" width="214" height="60" rx="6" class="st fzy"/>
+  <text x="360" y="63" text-anchor="middle" class="mono tacc" font-size="13" font-weight="700">Zygote</text>
+  <text x="360" y="79" text-anchor="middle" class="soft" font-size="9">started at boot: loads ART once,</text>
+  <text x="360" y="92" text-anchor="middle" class="soft" font-size="9">preloads the framework classes</text>
+
+  <!-- fork arrows -->
+  <path d="M320,102 L180,148" class="afork" marker-end="url(#md)"/>
+  <path d="M400,102 L540,148" class="afork" marker-end="url(#md)"/>
+  <text x="232" y="122" text-anchor="middle" class="mono soft" font-size="9">fork()</text>
+  <text x="488" y="122" text-anchor="middle" class="mono soft" font-size="9">fork()</text>
+  <text x="360" y="140" text-anchor="middle" class="soft" font-size="9">… and every other app process</text>
+
+  <!-- App A / App B -->
+  <rect x="80" y="150" width="150" height="42" rx="5" class="st fapp"/>
+  <text x="155" y="176" text-anchor="middle" class="mono txt" font-size="12" font-weight="700">App A</text>
+  <rect x="490" y="150" width="150" height="42" rx="5" class="st fapp"/>
+  <text x="565" y="176" text-anchor="middle" class="mono txt" font-size="12" font-weight="700">App B</text>
+
+  <!-- private: solid down to own heap -->
+  <path d="M155,192 L155,248" class="apriv" marker-end="url(#mg)"/>
+  <path d="M565,192 L565,248" class="apriv" marker-end="url(#mg)"/>
+  <rect x="65" y="250" width="180" height="44" rx="5" class="st fpriv"/>
+  <text x="155" y="270" text-anchor="middle" class="txt" font-size="9.5" font-weight="700">App A: own heap + state</text>
+  <text x="155" y="284" text-anchor="middle" class="soft" font-size="8.5">threads, GC, private JIT cache</text>
+  <rect x="475" y="250" width="180" height="44" rx="5" class="st fpriv"/>
+  <text x="565" y="270" text-anchor="middle" class="txt" font-size="9.5" font-weight="700">App B: own heap + state</text>
+  <text x="565" y="284" text-anchor="middle" class="soft" font-size="8.5">threads, GC, private JIT cache</text>
+
+  <!-- shared: dashed in to one copy -->
+  <path d="M228,182 L300,344" class="ashare" marker-end="url(#ms)"/>
+  <path d="M492,182 L420,344" class="ashare" marker-end="url(#ms)"/>
+  <rect x="252" y="346" width="216" height="66" rx="6" class="st fshare"/>
+  <text x="360" y="368" text-anchor="middle" class="mono tgreen" font-size="11" font-weight="700">one physical copy</text>
+  <text x="360" y="384" text-anchor="middle" class="txt" font-size="9">runtime code + preloaded pages</text>
+  <text x="360" y="398" text-anchor="middle" class="soft" font-size="8.5">read-only, shared by every app</text>
+
+  <!-- legend -->
+  <path d="M120,432 L152,432" class="apriv"/><text x="158" y="435" class="soft" font-size="9">solid: private to each process</text>
+  <path d="M400,432 L432,432" class="ashare"/><text x="438" y="435" class="tgreen" font-size="9">dashed: shared, copy-on-write</text>
+</svg>

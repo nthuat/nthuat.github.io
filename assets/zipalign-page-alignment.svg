@@ -1,0 +1,52 @@
+<svg width="720" viewBox="0 0 720 336" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>What zipalign does: padding each library onto a page boundary</title>
+  <desc>Before zipalign the .so library starts between two 4 KB page lines, so the phone must copy it into RAM. After zipalign, padding pushes it onto a page line, so the phone can map it in place, shared and demand-paged.</desc>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .st { fill:none; stroke:#2A3A4A; stroke-width:1.3; }
+    .pageline { stroke:#5A6B7D; stroke-width:1; stroke-dasharray:3 3; }
+    .fcard { fill:#FFFFFF; } .fso { fill:#E1EEF4; } .fpad { fill:#E7ECF2; }
+    .txt { fill:#1C2B3A; } .soft { fill:#5A6B7D; } .tso { fill:#2E6E8E; } .tbad { fill:#B4741A; } .tok { fill:#2F7D5B; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    .serif { font-family: Georgia, "Times New Roman", serif; font-style:italic; }
+    .badmark { stroke:#B4741A; stroke-width:2; fill:none; }
+    .okmark { stroke:#2F7D5B; stroke-width:2; fill:none; }
+  </style>
+
+  <!-- self-contained panel background -->
+  <rect x="1" y="1" width="718" height="334" rx="8" fill="#F8FAFC" stroke="#DDE4EC"/>
+
+  <text x="360" y="26" text-anchor="middle" class="serif soft" font-size="11">the APK is a box of files - the dashed lines are the 4 KB page boundaries</text>
+
+  <!-- ======= BEFORE ======= -->
+  <text x="70" y="54" class="mono tbad" font-size="12" font-weight="700">Before zipalign</text>
+  <g class="pageline">
+    <line x1="70"  y1="62" x2="70"  y2="124"/><line x1="210" y1="62" x2="210" y2="124"/>
+    <line x1="350" y1="62" x2="350" y2="124"/><line x1="490" y1="62" x2="490" y2="124"/>
+    <line x1="630" y1="62" x2="630" y2="124"/>
+  </g>
+  <rect x="70" y="68" width="215" height="46" class="st fcard"/>
+  <text x="177" y="95" text-anchor="middle" class="mono soft" font-size="9">app header, DEX, …</text>
+  <rect x="285" y="68" width="290" height="46" class="fso"/><rect x="285" y="68" width="290" height="46" class="st"/>
+  <text x="430" y="95" text-anchor="middle" class="mono tso" font-size="10" font-weight="700">the .so library</text>
+  <path d="M285,120 L285,134" class="badmark"/>
+  <text x="288" y="147" class="mono tbad" font-size="9.5" font-weight="700">starts between two lines ✗</text>
+  <text x="288" y="160" class="soft" font-size="9">the phone must COPY the whole library into RAM</text>
+
+  <!-- ======= AFTER ======= -->
+  <text x="70" y="207" class="mono tok" font-size="12" font-weight="700">After zipalign</text>
+  <g class="pageline">
+    <line x1="70"  y1="215" x2="70"  y2="277"/><line x1="210" y1="215" x2="210" y2="277"/>
+    <line x1="350" y1="215" x2="350" y2="277"/><line x1="490" y1="215" x2="490" y2="277"/>
+    <line x1="630" y1="215" x2="630" y2="277"/>
+  </g>
+  <rect x="70" y="221" width="215" height="46" class="st fcard"/>
+  <text x="177" y="248" text-anchor="middle" class="mono soft" font-size="9">app header, DEX, …</text>
+  <rect x="285" y="221" width="65" height="46" class="fpad"/><rect x="285" y="221" width="65" height="46" class="st"/>
+  <text x="317" y="248" text-anchor="middle" class="mono soft" font-size="8.5">padding</text>
+  <rect x="350" y="221" width="285" height="46" class="fso"/><rect x="350" y="221" width="285" height="46" class="st"/>
+  <text x="492" y="248" text-anchor="middle" class="mono tso" font-size="10" font-weight="700">the .so library</text>
+  <path d="M350,273 L350,287" class="okmark"/>
+  <text x="353" y="300" class="mono tok" font-size="9.5" font-weight="700">now starts right on a line ✓</text>
+  <text x="353" y="313" class="soft" font-size="9">the phone can MAP it straight from the APK (shared, loads bit by bit)</text>
+</svg>
