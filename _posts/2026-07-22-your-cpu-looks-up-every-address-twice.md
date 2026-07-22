@@ -78,9 +78,10 @@ There's a simple formula for it. The TLB can translate, without a miss, exactly
 as much memory as it has entries, times the size of a page. That product is
 called its reach.
 
-Put in a number: a TLB of around 2000 entries, with 4 KB pages, reaches about
-8 MB (2000 times 4 KB). That's the amount of memory whose translations fit in
-the cache at once. As long as the code and data a program is actively touching
+Put in a number. Real TLBs run from a few hundred to a few thousand entries;
+I'll use around 2000 for round arithmetic. With 4 KB pages that reaches about
+8 MB (2000 times 4 KB), the amount of memory whose translations fit in the cache
+at once. As long as the code and data a program is actively touching
 stays under that, translations are mostly hits and the cost stays invisible.
 
 Go past it and the TLB starts thrashing. Every access is to a page whose
@@ -110,18 +111,22 @@ faults and a smaller ledger to maintain. Bigger pages are cheaper to manage
 across the board.
 
 They aren't free, though. A page is the smallest unit the system hands out, so
-anything that spills one byte past a page boundary still costs a whole page. At
-16 KB that rounding waste is larger, so you spend a little more RAM. It's a
-straight trade: some memory, for fewer and cheaper translations.
+anything that spills one byte past a page boundary still costs a whole page.
+A 17 KB allocation takes 20 KB with 4 KB pages (five of them, the last barely
+used), but 32 KB with 16 KB pages (two, the second almost empty), the same data
+wasting 15 KB instead of 3. Multiply that rounding across every mapping and you
+spend a little more RAM. It's a straight trade: some memory, for fewer and
+cheaper translations.
 
-You might wonder why 16 KB specifically, and not 32 or 64. The choice isn't
-open-ended. The ARM64 architecture only defines three page sizes at all, 4 KB,
-16 KB, and 64 KB (and a given chip implements some subset of those), so 32 KB
-was never on the table. Between the two larger options,
-16 KB is the sweet spot: moving from 4 KB to 16 KB already captures most of the
-reach benefit, while 64 KB would waste far more memory to that rounding for
-little extra gain. Apple's ARM chips have run 16 KB pages for years, so it was a
-proven balance before Android reached for it.
+You might wonder why 16 KB specifically, and not 32 or 64. Two separate things
+are going on. First, the set of choices is fixed by the hardware: the ARM64
+architecture only defines three page sizes at all, 4 KB, 16 KB, and 64 KB (and a
+given chip implements some subset of those), so 32 KB was never even an option.
+
+Second, among the sizes that do exist, 16 KB is the sweet spot. Moving from 4 KB
+to 16 KB already captures most of the reach benefit, while 64 KB would waste far
+more memory to that rounding for little extra gain. Apple's ARM chips have run
+16 KB pages for years, so it was a proven balance before Android reached for it.
 
 ## What Android actually did
 
@@ -135,8 +140,10 @@ more memory.
 
 There's a catch, and it lands right back on something concrete. A native `.so`
 library has its internal segments aligned to 4 KB, because that's what 4 KB
-pages needed. On a 16 KB device those segments no longer sit on page boundaries,
-so the library can't be mapped in and the app crashes on load. The fix is to
+pages needed. On a 16 KB device those segments no longer sit on page boundaries.
+The loader maps each segment directly from the file, and a memory mapping has to
+start on a page boundary, so a misaligned segment can't be mapped at all: the
+call fails, and the app crashes on load rather than merely loading slower. The fix is to
 rebuild the library with 16 KB alignment, which the current NDK, the Native
 Development Kit, now does by default, and to pad the APK so each library starts
 on a 16 KB line, which is exactly what `zipalign -P 16` does. That's why the
