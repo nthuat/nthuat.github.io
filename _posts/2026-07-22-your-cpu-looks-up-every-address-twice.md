@@ -53,9 +53,10 @@ permissions. On every access the CPU checks the TLB first.
 
 If the page is in the TLB, that's a **hit**: the translation comes back in about
 a cycle and the CPU goes straight to fetching the data. If it isn't, that's a
-**miss**: now the hardware has to walk the multi-level ledger in RAM the slow
-way, and once it finds the answer it drops it into the TLB so the next access to
-that page is a hit.
+**miss**: now the multi-level ledger in RAM has to be walked the slow way. On
+ARM a dedicated hardware unit does this walk automatically, there's no software
+trap, and once it finds the answer it drops it into the TLB so the next access
+to that page is a hit.
 
 One distinction is worth pinning down, because the words sound alike. A TLB
 miss is not a page fault. A miss means the page really is in memory and the
@@ -114,8 +115,9 @@ anything that spills one byte past a page boundary still costs a whole page. At
 straight trade: some memory, for fewer and cheaper translations.
 
 You might wonder why 16 KB specifically, and not 32 or 64. The choice isn't
-open-ended. ARM64 hardware only supports three page sizes at all, 4 KB, 16 KB,
-and 64 KB, so 32 KB was never on the table. Between the two larger options,
+open-ended. The ARM64 architecture only defines three page sizes at all, 4 KB,
+16 KB, and 64 KB (and a given chip implements some subset of those), so 32 KB
+was never on the table. Between the two larger options,
 16 KB is the sweet spot: moving from 4 KB to 16 KB already captures most of the
 reach benefit, while 64 KB would waste far more memory to that rounding for
 little extra gain. Apple's ARM chips have run 16 KB pages for years, so it was a
