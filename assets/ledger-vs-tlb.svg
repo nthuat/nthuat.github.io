@@ -1,0 +1,68 @@
+<svg width="720" viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>The page table is a ledger of page-to-frame rows in RAM; the TLB caches a few of those same rows on the chip</title>
+  <desc>Left: the page table in RAM, one row per page mapping a virtual page to a physical frame and permissions. Right: the TLB on the CPU, holding copies of a few of those same rows, so a hit reads the answer on-chip instead of walking the ledger.</desc>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .st { fill:none; stroke:#2A3A4A; stroke-width:1.1; }
+    .rowln { stroke:#DDE4EC; stroke-width:1; }
+    .cache { fill:none; stroke:#B4741A; stroke-width:1.2; stroke-dasharray:4 3; }
+    .fled{fill:#FFFFFF;} .fhi{fill:#F7E7CE;} .fchip{fill:#DFF0E7;}
+    .txt{fill:#1C2B3A;} .soft{fill:#5A6B7D;} .tcpu{fill:#2E6E8E;} .thi{fill:#B4741A;}
+    .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;}
+    .serif{font-family:Georgia,"Times New Roman",serif; font-style:italic;}
+  </style>
+  <rect x="1" y="1" width="718" height="298" rx="8" fill="#F8FAFC" stroke="#DDE4EC"/>
+
+  <!-- LEFT: the ledger -->
+  <text x="40" y="34" class="mono txt" font-size="11" font-weight="700">the page table (ledger)</text>
+  <text x="40" y="48" class="serif soft" font-size="10">in RAM, one row per page, big</text>
+  <rect x="40" y="58" width="250" height="210" rx="6" class="fled st"/>
+  <text x="72" y="76" class="mono soft" font-size="8.5">page</text>
+  <text x="158" y="76" class="mono soft" font-size="8.5">frame</text>
+  <text x="238" y="76" class="mono soft" font-size="8.5">perms</text>
+  <line x1="52" y1="82" x2="278" y2="82" class="rowln"/>
+  <g class="mono" font-size="9.5">
+    <text x="72" y="100" class="txt">0</text><text x="158" y="100" class="txt">5</text><text x="238" y="100" class="soft">r-x</text>
+    <line x1="52" y1="108" x2="278" y2="108" class="rowln"/>
+    <text x="72" y="126" class="txt">1</text><text x="158" y="126" class="txt">5</text><text x="238" y="126" class="soft">r-x</text>
+    <line x1="52" y1="134" x2="278" y2="134" class="rowln"/>
+    <rect x="52" y="140" width="226" height="20" class="fhi"/>
+    <text x="72" y="155" class="thi" font-weight="700">2</text><text x="158" y="155" class="thi" font-weight="700">9</text><text x="238" y="155" class="thi">r--</text>
+    <line x1="52" y1="166" x2="278" y2="166" class="rowln"/>
+    <text x="72" y="184" class="txt">3</text><text x="158" y="184" class="txt">2</text><text x="238" y="184" class="soft">rw-</text>
+    <line x1="52" y1="192" x2="278" y2="192" class="rowln"/>
+    <rect x="52" y="198" width="226" height="20" class="fhi"/>
+    <text x="72" y="213" class="thi" font-weight="700">7</text><text x="158" y="213" class="thi" font-weight="700">4</text><text x="238" y="213" class="thi">r-x</text>
+    <line x1="52" y1="224" x2="278" y2="224" class="rowln"/>
+    <text x="72" y="242" class="soft">…</text><text x="158" y="242" class="soft">…</text><text x="238" y="242" class="soft">…</text>
+  </g>
+  <text x="165" y="262" text-anchor="middle" class="serif soft" font-size="9">thousands of rows</text>
+
+  <!-- MIDDLE: copied arrows -->
+  <path d="M290,150 C340,150 360,120 428,120" class="cache" marker-end="url(#ac)"/>
+  <path d="M290,208 C340,208 360,150 428,150" class="cache" marker-end="url(#ac)"/>
+  <text x="360" y="185" text-anchor="middle" class="thi mono" font-size="8">a few rows</text>
+  <text x="360" y="197" text-anchor="middle" class="thi mono" font-size="8">get cached</text>
+  <defs><marker id="ac" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#B4741A"/></marker></defs>
+
+  <!-- RIGHT: the TLB -->
+  <text x="430" y="34" class="mono tcpu" font-size="11" font-weight="700">the TLB</text>
+  <text x="430" y="48" class="serif soft" font-size="10">on the chip, a few rows, tiny + fast</text>
+  <rect x="430" y="58" width="250" height="120" rx="6" class="fchip st"/>
+  <text x="462" y="76" class="mono soft" font-size="8.5">page</text>
+  <text x="548" y="76" class="mono soft" font-size="8.5">frame</text>
+  <text x="628" y="76" class="mono soft" font-size="8.5">perms</text>
+  <line x1="442" y1="82" x2="668" y2="82" class="rowln"/>
+  <g class="mono" font-size="9.5">
+    <rect x="442" y="88" width="226" height="20" class="fhi"/>
+    <text x="462" y="103" class="thi" font-weight="700">2</text><text x="548" y="103" class="thi" font-weight="700">9</text><text x="628" y="103" class="thi">r--</text>
+    <line x1="442" y1="114" x2="668" y2="114" class="rowln"/>
+    <rect x="442" y="120" width="226" height="20" class="fhi"/>
+    <text x="462" y="135" class="thi" font-weight="700">7</text><text x="548" y="135" class="thi" font-weight="700">4</text><text x="628" y="135" class="thi">r-x</text>
+    <line x1="442" y1="146" x2="668" y2="146" class="rowln"/>
+    <text x="462" y="161" class="txt">1</text><text x="548" y="161" class="txt">5</text><text x="628" y="161" class="soft">r-x</text>
+  </g>
+  <text x="555" y="196" text-anchor="middle" class="serif soft" font-size="9">copies of the ledger's own rows</text>
+
+  <text x="360" y="288" text-anchor="middle" class="serif soft" font-size="10">a hit reads the answer here, on the chip, instead of walking the ledger in RAM</text>
+</svg>

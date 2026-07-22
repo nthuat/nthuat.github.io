@@ -45,7 +45,12 @@ So you cache the answers.
 The cache is a small, very fast table that sits right on the CPU and remembers
 recent translations. It's called the TLB, the Translation Lookaside Buffer, and
 each entry holds one page's answer: which physical frame it maps to, plus its
-permissions. On every access the CPU checks the TLB first.
+permissions. In other words, a TLB entry is just a copy of one of the ledger's
+rows, kept on the chip. On every access the CPU checks the TLB first.
+
+![The page table is a ledger of page-to-frame rows in RAM; the TLB holds copies of a few of those same rows on the chip](/assets/ledger-vs-tlb.svg)
+
+*The TLB isn't a different structure, it's a few of the ledger's own rows, cached on the chip so a hit skips the walk.*
 
 ![One memory access is two lookups: the TLB translates the address (a hit returns the frame in about a cycle, a miss walks the page table in RAM), then the data is fetched](/assets/address-translation.svg)
 
