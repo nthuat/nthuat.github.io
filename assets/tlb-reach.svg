@@ -1,0 +1,29 @@
+<svg width="720" viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>TLB reach = entries times page size</title>
+  <desc>A TLB with a fixed number of entries covers more memory when pages are bigger. With about 2000 entries, 4 KB pages reach roughly 8 MB, while 16 KB pages reach roughly 32 MB, four times the coverage from the same hardware.</desc>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .st { fill:none; stroke:#2A3A4A; stroke-width:1.1; }
+    .f4{fill:#F7E7CE;} .f16{fill:#DFF0E7;}
+    .txt{fill:#1C2B3A;} .soft{fill:#5A6B7D;} .t4{fill:#B4741A;} .t16{fill:#2F7D5B;}
+    .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;}
+    .serif{font-family:Georgia,"Times New Roman",serif; font-style:italic;}
+  </style>
+  <rect x="1" y="1" width="718" height="208" rx="8" fill="#F8FAFC" stroke="#DDE4EC"/>
+  <text x="360" y="30" text-anchor="middle" class="mono txt" font-size="12" font-weight="700">TLB reach = entries &#215; page size</text>
+  <text x="360" y="46" text-anchor="middle" class="serif soft" font-size="10">same small cache (~2000 entries), bigger pages cover more memory for free</text>
+
+  <!-- 4KB row -->
+  <text x="40" y="92" class="mono t4" font-size="11" font-weight="700">4 KB pages</text>
+  <rect x="150" y="78" width="90" height="22" class="f4"/><rect x="150" y="78" width="90" height="22" class="st"/>
+  <text x="250" y="94" class="mono soft" font-size="10">&#8776; 8 MB covered</text>
+  <text x="430" y="94" class="mono soft" font-size="9">(2000 &#215; 4 KB)</text>
+
+  <!-- 16KB row -->
+  <text x="40" y="140" class="mono t16" font-size="11" font-weight="700">16 KB pages</text>
+  <rect x="150" y="126" width="360" height="22" class="f16"/><rect x="150" y="126" width="360" height="22" class="st"/>
+  <text x="520" y="142" class="mono soft" font-size="10">&#8776; 32 MB</text>
+  <text x="430" y="166" class="mono soft" font-size="9">(2000 &#215; 16 KB)</text>
+
+  <text x="360" y="192" text-anchor="middle" class="serif t16" font-size="10.5">4&#215; the reach, same hardware, so far fewer misses when the working set is large</text>
+</svg>
