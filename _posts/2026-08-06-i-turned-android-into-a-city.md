@@ -10,7 +10,10 @@ Then the boxes fall apart, because the interesting part was never the boxes.
 It was the traffic between them.
 
 So I built the traffic. It's called DroidCity, and it's live at
-**[thuat.dev/droidcity](https://thuat.dev/droidcity/)**.
+**[thuat.dev/droidcity](https://thuat.dev/droidcity/)**. The idea isn't
+mine originally, I saw [PGSimCity](https://nikolays.github.io/PGSimCity/)
+render Postgres as a living city and couldn't stop thinking about what
+Android would look like on the same board.
 
 [![DroidCity, the whole board laid out as the Android stack, with a working phone screen at the front edge](/assets/droidcity-overview.jpg)](https://thuat.dev/droidcity/)
 
